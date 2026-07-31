@@ -13,11 +13,9 @@ export function saveGasUrl(url: string): void {
 
 export async function callRpc(method: string, data: unknown = {}): Promise<any> {
   const gasUrl = getGasUrl();
-
-  const rpcData: unknown = data;
   if (!gasUrl) {
     if (method === 'verifyStaffPIN') {
-      const payload = rpcData as { email?: string; pin?: string };
+      const payload = data as { email?: string; pin?: string };
       const name = (payload.email || '').trim().toLowerCase();
       if ((payload.pin === '1234' && (!name || name.includes('admin'))) || payload.pin === '1111') {
         return {
@@ -40,12 +38,12 @@ export async function callRpc(method: string, data: unknown = {}): Promise<any> 
       method: 'POST',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ method, data: rpcData || {} })
+      body: JSON.stringify({ method, data: data || {} })
     });
   } else {
     const url = new URL(gasUrl);
     url.searchParams.set('method', method);
-    url.searchParams.set('data', JSON.stringify(rpcData || {}));
+    url.searchParams.set('data', JSON.stringify(data || {}));
     url.searchParams.set('_', Date.now().toString());
     response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
   }

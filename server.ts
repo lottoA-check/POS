@@ -17,27 +17,6 @@ let expenses = [...initialExpenses];
 let staff = [...initialStaff];
 let settings = { ...initialSettings };
 
-
-// Always use English (Latin) digits for dates saved to Google Sheets.
-// Format: DD-MM-YYYY HH:mm, using Myanmar/Thailand regional time.
-function formatEnglishTimestamp(date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-GB-u-nu-latn', {
-    timeZone: 'Asia/Yangon',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23'
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value || '';
-  return `${get('day')}-${get('month')}-${get('year')} ${get('hour')}:${get('minute')}`;
-}
-
-function formatEnglishDate(date = new Date()): string {
-  return formatEnglishTimestamp(date).split(' ')[0];
-}
-
 async function forwardToGas(gasUrl: string, method: string, data: any) {
   if (!gasUrl || typeof gasUrl !== 'string' || !gasUrl.startsWith('http')) return null;
 
@@ -152,7 +131,7 @@ async function startServer() {
                 status: r.status || 'Pending',
                 fee: Number(r.fee || 0),
                 total: Number(r.total || r.price || 0),
-                createdat: r.createdat || r['created at'] || formatEnglishTimestamp(),
+                createdat: r.createdat || r['created at'] || new Date().toLocaleString(),
                 remark: r.remark || ''
               }));
             }
@@ -165,7 +144,7 @@ async function startServer() {
             const gasExp = await forwardToGas(gasUrl, 'getExpensesData', {});
             if (Array.isArray(gasExp) && gasExp.length > 0) {
               expenses = gasExp.map((e: any) => ({
-                date: e.date || formatEnglishDate(),
+                date: e.date || new Date().toLocaleDateString(),
                 description: e.description || '',
                 category: e.category || 'General',
                 amount: Number(e.amount || 0),
@@ -181,7 +160,7 @@ async function startServer() {
             const gasSales = await forwardToGas(gasUrl, 'getSalesHistory', {});
             if (Array.isArray(gasSales) && gasSales.length > 0) {
               sales = gasSales.map((s: any) => ({
-                timestamp: s.timestamp || formatEnglishTimestamp(),
+                timestamp: s.timestamp || new Date().toLocaleString(),
                 voucherno: s.voucherno || s['voucher no'] || 'V-000',
                 productid: s.productid || s['productid'] || 'WALK-IN',
                 type: s.type || 'General',
@@ -256,7 +235,7 @@ async function startServer() {
         case 'saveRepair': {
           const nextNum = 1000 + repairs.length + 1;
           const nextId = `REP-${nextNum}`;
-          const nowStr = formatEnglishTimestamp();
+          const nowStr = new Date().toLocaleString();
           const newJob = {
             ticketid: nextId,
             customername: data.customerName || data.customer || 'Unknown',
@@ -288,7 +267,7 @@ async function startServer() {
         }
 
         case 'saveExpense': {
-          const nowStr = formatEnglishDate();
+          const nowStr = new Date().toLocaleDateString();
           const newExpense = {
             date: nowStr,
             description: data.description,
@@ -303,7 +282,7 @@ async function startServer() {
 
         case 'recordSale': {
           const voucherNo = `V-${1000 + sales.length + 1}`;
-          const nowStr = formatEnglishTimestamp();
+          const nowStr = new Date().toLocaleString();
           const price = Number(data.price || data.total) || 0;
           const cost = Number(data.costPrice) || 0;
           const newSale = {
@@ -330,7 +309,7 @@ async function startServer() {
 
         case 'recordMultipleSales': {
           const voucherNo = `V-${1000 + sales.length + 1}`;
-          const nowStr = formatEnglishTimestamp();
+          const nowStr = new Date().toLocaleString();
           const items = data.items || [];
 
           items.forEach((item: any) => {

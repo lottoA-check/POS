@@ -66,30 +66,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newProductCategory, setNewProductCategory] = React.useState('');
   const [newAccessoryCategory, setNewAccessoryCategory] = React.useState('');
 
-  const [isSavingCategories, setIsSavingCategories] = React.useState(false);
-
-  const saveCategoryList = async (key: string, items: string[], setter: (items: string[]) => void) => {
+  const saveCategoryList = (key: string, items: string[], setter: (items: string[]) => void) => {
     const clean = Array.from(new Set(items.map(v => v.trim()).filter(Boolean)));
-    const nextProducts = key === 'ksm_product_categories' ? clean : productCategories;
-    const nextAccessories = key === 'ksm_accessory_categories' ? clean : accessoryCategories;
-
     setter(clean);
     localStorage.setItem(key, JSON.stringify(clean));
-    setIsSavingCategories(true);
-    try {
-      const response = await callRpc('saveCategories', {
-        productCategories: nextProducts,
-        accessoryCategories: nextAccessories,
-      });
-      if (response?.status === 'error') throw new Error(response.message || 'Could not save categories.');
-    } catch (err) {
-      alert((lang === 'mm' ? 'Category ကို System ထဲသို့ မသိမ်းနိုင်ပါ။ Google Apps Script အသစ်ကို Deploy လုပ်ပါ။\n' : 'Could not save categories to the system. Deploy the new Google Apps Script version.\n') + String(err));
-    } finally {
-      setIsSavingCategories(false);
-    }
   };
 
-  const addCategory = async (kind: 'product' | 'accessory') => {
+  const addCategory = (kind: 'product' | 'accessory') => {
     const value = (kind === 'product' ? newProductCategory : newAccessoryCategory).trim();
     if (!value) return;
     const list = kind === 'product' ? productCategories : accessoryCategories;
@@ -98,10 +81,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       return;
     }
     if (kind === 'product') {
-      await saveCategoryList('ksm_product_categories', [...list, value], setProductCategories);
+      saveCategoryList('ksm_product_categories', [...list, value], setProductCategories);
       setNewProductCategory('');
     } else {
-      await saveCategoryList('ksm_accessory_categories', [...list, value], setAccessoryCategories);
+      saveCategoryList('ksm_accessory_categories', [...list, value], setAccessoryCategories);
       setNewAccessoryCategory('');
     }
   };
@@ -256,16 +239,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   {group.items.map(item => (
                     <span key={item} className="inline-flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200">
                       {item}
-                      <button type="button" disabled={isSavingCategories} onClick={async () => {
+                      <button type="button" onClick={() => {
                         if (group.kind === 'product' && group.items.length <= 1) { alert(lang === 'mm' ? 'အနည်းဆုံး Category တစ်ခုထားရပါမည်။' : 'Keep at least one product category.'); return; }
-                        await saveCategoryList(group.key, group.items.filter(v => v !== item), group.setter);
+                        saveCategoryList(group.key, group.items.filter(v => v !== item), group.setter);
                       }} className="text-rose-500 hover:text-rose-600" title="Remove"><Trash2 size={13}/></button>
                     </span>
                   ))}
                 </div>
               </div>
             ))}
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">{isSavingCategories ? (lang === 'mm' ? 'System ထဲသို့ သိမ်းနေပါသည်…' : 'Saving categories to the system…') : (lang === 'mm' ? 'Category များကို Google Sheet System ထဲတွင် သိမ်းထားသောကြောင့် Browser နှင့် Device အားလုံးတွင် အသုံးပြုနိုင်ပါသည်။' : 'Categories are saved in the Google Sheet system and load on every browser and device.')}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">{lang === 'mm' ? 'ထည့်ပြီးသော Category များကို Inventory နှင့် POS တွင် ချက်ချင်းအသုံးပြုနိုင်ပါသည်။' : 'Saved categories appear immediately in Inventory and POS.'}</p>
           </div>
         </div>
       )}

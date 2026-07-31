@@ -29,60 +29,8 @@ function doPost(e) {
   }
 }
 
-
-
-// Force the whole spreadsheet to use an English locale and Myanmar time.
-// This is the reliable fix for Burmese digits in date/time cells.
-function ensureEnglishSpreadsheetSettings(ss) {
-  try { ss.setSpreadsheetLocale('en_GB'); } catch (e) {}
-  try { ss.setSpreadsheetTimeZone('Asia/Yangon'); } catch (e) {}
-}
-
-// Fixed English timestamp helpers. These force Latin/English numbers even when
-// the phone, browser, or Google account language is Burmese.
-function formatEnglishTimestamp(date) {
-  return Utilities.formatDate(date || new Date(), 'Asia/Yangon', 'dd-MM-yyyy HH:mm');
-}
-
-function formatEnglishDate(date) {
-  return Utilities.formatDate(date || new Date(), 'Asia/Yangon', 'dd-MM-yyyy');
-}
-
-// Convert Burmese and other common localized digits to Latin 0-9.
-function latinDigits(value) {
-  var maps = [
-    ['၀','၁','၂','၃','၄','၅','၆','၇','၈','၉'],
-    ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'],
-    ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹']
-  ];
-  var text = String(value == null ? '' : value);
-  maps.forEach(function(map) {
-    map.forEach(function(ch, i) { text = text.split(ch).join(String(i)); });
-  });
-  return text;
-}
-
-// Save rows with selected columns forced to Plain Text.
-// This stops Google Sheets locale from changing timestamp digits.
-function appendRowWithDateColumns(sheet, values, dateColumnNumbers) {
-  var row = sheet.getLastRow() + 1;
-  var dateCols = dateColumnNumbers || [];
-  var writeValues = values.slice();
-
-  dateCols.forEach(function(columnNumber) {
-    // Always create the date on the server. Never allow browser locale text.
-    writeValues[columnNumber - 1] = new Date();
-  });
-
-  sheet.getRange(row, 1, 1, writeValues.length).setValues([writeValues]);
-  dateCols.forEach(function(columnNumber) {
-    sheet.getRange(row, columnNumber).setNumberFormat('dd-MM-yyyy HH:mm');
-  });
-}
-
 function handleRpcRequest(method, data) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ensureEnglishSpreadsheetSettings(ss);
   var result = {};
 
   try {
@@ -247,8 +195,8 @@ function handleRpcRequest(method, data) {
         var repSheet = getOrCreateSheet(ss, 'Repairs');
         var repData = getSheetDataAsObjects(ss, 'Repairs');
         var ticketId = 'REP-' + (1000 + repData.length + 1);
-        var nowStr = latinDigits(data.timestamp || formatEnglishTimestamp(new Date()));
-        appendRowWithDateColumns(repSheet, [
+        var nowStr = new Date().toLocaleString();
+        repSheet.appendRow([
           ticketId,
           data.customerName || data.customername || 'Unknown',
           data.phone || '-',
@@ -261,8 +209,8 @@ function handleRpcRequest(method, data) {
           data.total || data.price || 0,
           nowStr,
           data.remark || ''
-        ], [11]);
-        result = { status: 'success', id: ticketId, timestamp: nowStr };
+        ]);
+        result = { status: 'success', id: ticketId };
         break;
 
       case 'recordSale':
@@ -270,13 +218,13 @@ function handleRpcRequest(method, data) {
         var salesSheet = getOrCreateSheet(ss, 'Sales');
         var salesData = getSheetDataAsObjects(ss, 'Sales');
         var voucherNo = 'V-' + (1000 + salesData.length + 1);
-        var nowStr = latinDigits(data.timestamp || formatEnglishTimestamp(new Date()));
+        var nowStr = new Date().toLocaleString();
         var items = data.items || [data];
 
         items.forEach(function(item) {
           var price = Number(item.price) || 0;
           var cost = Number(item.costPrice || item.costprice) || 0;
-          appendRowWithDateColumns(salesSheet, [
+          salesSheet.appendRow([
             nowStr,
             voucherNo,
             item.productId || 'WALK-IN',
@@ -292,44 +240,21 @@ function handleRpcRequest(method, data) {
             data.remark || item.remark || '',
             cost,
             price - cost
-          ], [1]);
+          ]);
         });
-        result = { status: 'success', voucherNo: voucherNo, timestamp: nowStr };
-        break;
-
-      case 'getPurchasesData':
-        result = getSheetDataAsObjects(ss, 'Purchases');
-        break;
-
-      case 'savePurchase':
-        var purchaseSheet = getOrCreateSheet(ss, 'Purchases');
-        var purchaseRows = getSheetDataAsObjects(ss, 'Purchases');
-        var purchaseId = 'PUR-' + (1000 + purchaseRows.length + 1);
-        var purchaseTimestamp = latinDigits(data.timestamp || formatEnglishTimestamp(new Date()));
-        var qty = Number(data.quantity || 0);
-        var unitCost = Number(data.unitCost || data.unitcost || 0);
-        var purchaseTotal = qty * unitCost;
-        var paid = Number(data.paidAmount || data.paid || 0);
-        appendRowWithDateColumns(purchaseSheet, [
-          purchaseTimestamp, purchaseId, data.productId || '', data.productName || '',
-          data.supplier || '', data.invoiceNo || '', qty, unitCost, purchaseTotal,
-          paid, Math.max(0, purchaseTotal - paid), data.paymentMethod || 'Cash',
-          data.costMode || 'average', data.remark || '', data.notedBy || 'Admin'
-        ], [1]);
-        result = { status: 'success', id: purchaseId, timestamp: purchaseTimestamp };
+        result = { status: 'success', voucherNo: voucherNo };
         break;
 
       case 'saveExpense':
         var expSheet = getOrCreateSheet(ss, 'Expenses');
-        var expenseDate = latinDigits(data.timestamp || data.date || formatEnglishTimestamp(new Date()));
-        appendRowWithDateColumns(expSheet, [
-          expenseDate,
+        expSheet.appendRow([
+          new Date().toLocaleDateString(),
           data.description || '',
           data.category || 'General',
           Number(data.amount || 0),
           data.notedBy || 'Admin'
-        ], [1]);
-        result = { status: 'success', timestamp: expenseDate };
+        ]);
+        result = { status: 'success' };
         break;
 
       case 'saveSettings':
@@ -360,13 +285,11 @@ function handleRpcRequest(method, data) {
 
 function setupDatabase() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ensureEnglishSpreadsheetSettings(ss);
   var sheets = [
     { name: 'Inventory', headers: ['ID', 'Type', 'Brand', 'Model', 'Cost Price', 'Selling Price', 'Stock', 'Status', 'IMEI', 'Grade', 'Specification'] },
     { name: 'Sales', headers: ['Timestamp', 'Voucher No', 'ProductID', 'Type', 'Price', 'Customer', 'Phone', 'IMEI', 'Warranty', 'Payment Method', 'Channel', 'Specification', 'Remark', 'Cost Price', 'Profit'] },
     { name: 'Repairs', headers: ['Ticket ID', 'Customer Name', 'Phone', 'Device', 'Issue', 'IMEI/SN', 'Initial Condition', 'Status', 'Fee', 'Total', 'Created At', 'Remark'] },
-    { name: 'Expenses', headers: ['Timestamp', 'Description', 'Category', 'Amount', 'Noted By'] },
-    { name: 'Purchases', headers: ['Timestamp', 'Purchase ID', 'Product ID', 'Product Name', 'Supplier', 'Invoice No', 'Quantity', 'Unit Cost', 'Total', 'Paid', 'Balance', 'Payment Method', 'Cost Mode', 'Remark', 'Noted By'] },
+    { name: 'Expenses', headers: ['Date', 'Description', 'Category', 'Amount', 'Noted By'] },
     { name: 'Staff', headers: ['Name', 'Email', 'PIN', 'Role', 'Status'] },
     { name: 'Settings', headers: ['Key', 'Value'] }
   ];

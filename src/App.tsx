@@ -27,21 +27,6 @@ import { LoginModal } from './components/LoginModal';
 import { GasGuideModal } from './components/GasGuideModal';
 import { callRpc } from './api';
 
-const formatEnglishTimestamp = (date = new Date()) => {
-  const parts = new Intl.DateTimeFormat('en-GB-u-nu-latn', {
-    timeZone: 'Asia/Yangon',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23'
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value || '';
-  return `${get('day')}-${get('month')}-${get('year')} ${get('hour')}:${get('minute')}`;
-};
-
-
 const translations: Record<string, Record<string, string>> = {
   en: {
     dashboard: 'Dashboard',
@@ -353,26 +338,6 @@ export default function App() {
         if (data.store_logo) setStoreLogo(data.store_logo);
         if (data.store_footer) setStoreFooter(data.store_footer);
         if (data.store_paper_size) setStorePaperSize(data.store_paper_size);
-        const parseCategorySetting = (value: unknown): string[] => {
-          if (Array.isArray(value)) return value.map(String).map(v => v.trim()).filter(Boolean);
-          if (typeof value !== 'string' || !value.trim()) return [];
-          try {
-            const parsed = JSON.parse(value);
-            return Array.isArray(parsed) ? parsed.map(String).map(v => v.trim()).filter(Boolean) : [];
-          } catch {
-            return value.split(',').map(v => v.trim()).filter(Boolean);
-          }
-        };
-        const serverProducts = parseCategorySetting(data.product_categories);
-        const serverAccessories = parseCategorySetting(data.accessory_categories);
-        if (serverProducts.length) {
-          setProductCategories(serverProducts);
-          localStorage.setItem('ksm_product_categories', JSON.stringify(serverProducts));
-        }
-        if (serverAccessories.length) {
-          setAccessoryCategories(serverAccessories);
-          localStorage.setItem('ksm_accessory_categories', JSON.stringify(serverAccessories));
-        }
       }
     }).catch(console.error);
     callRpc('getStaffMembers').then(data => setStaffMembers(data || [])).catch(console.error);
@@ -488,8 +453,7 @@ export default function App() {
       paymentMethod,
       channel,
       remark: [baseRemark, paymentRemark].filter(Boolean).join(' | '),
-      items: itemsToSave,
-      timestamp: formatEnglishTimestamp()
+      items: itemsToSave
     };
 
     callRpc('recordMultipleSales', checkoutData)
@@ -502,7 +466,7 @@ export default function App() {
 
         setCurrentReceipt({
           id: res.voucherNo || ('V-' + Date.now().toString().slice(-6)),
-          date: formatEnglishTimestamp(),
+          date: new Date().toLocaleString(),
           customer: customerName,
           phone,
           items: itemsToSave,
@@ -544,8 +508,7 @@ export default function App() {
       costMode: (form.elements.namedItem('costMode') as HTMLSelectElement)?.value || 'average',
       paymentMethod: (form.elements.namedItem('paymentMethod') as HTMLSelectElement).value,
       remark: (form.elements.namedItem('remark') as HTMLInputElement).value,
-      notedBy: currentUser?.name || 'Admin',
-      timestamp: formatEnglishTimestamp()
+      notedBy: currentUser?.name || 'Admin'
     };
     callRpc('savePurchase', payload).then(res => {
       setIsSaving(false);
@@ -568,8 +531,7 @@ export default function App() {
       description: (form.elements.namedItem('description') as HTMLInputElement).value,
       category: (form.elements.namedItem('category') as HTMLSelectElement).value,
       amount: Number((form.elements.namedItem('amount') as HTMLInputElement).value),
-      notedBy: currentUser?.name || 'Admin',
-      timestamp: formatEnglishTimestamp()
+      notedBy: currentUser?.name || 'Admin'
     };
 
     callRpc('saveExpense', formData)
@@ -633,8 +595,7 @@ export default function App() {
       condition: (form.elements.namedItem('condition') as HTMLInputElement).value || '-',
       total: Number((form.elements.namedItem('total') as HTMLInputElement).value),
       remark: (form.elements.namedItem('remark') as HTMLInputElement)?.value || '',
-      fee: 0,
-      timestamp: formatEnglishTimestamp()
+      fee: 0
     };
 
     callRpc('saveRepair', formData)
@@ -643,7 +604,7 @@ export default function App() {
         setShowRepairModal(false);
         setCurrentReceipt({
           id: res.id || ('REP-' + Math.floor(Math.random() * 9000 + 1000)),
-          date: formatEnglishTimestamp(),
+          date: new Date().toLocaleString(),
           customer: formData.customerName,
           phone: formData.phone,
           items: [{ model: formData.device, issue: formData.issue, price: formData.total, imei: formData.imei, specification: formData.condition }],
